@@ -159,8 +159,15 @@ install_pkg() {
 download() {
     case $1 in
     core)
-        [[ ! $is_core_ver ]] && is_core_ver=$(_wget -qO- "https://api.github.com/repos/${is_core_repo}/releases/latest?v=$RANDOM" | grep tag_name | egrep -o 'v([0-9.]+)')
-        [[ $is_core_ver ]] && link="https://github.com/${is_core_repo}/releases/download/${is_core_ver}/${is_core}-${is_core_ver:1}-linux-${is_arch}.tar.gz"
+        if [[ ! $is_core_ver ]]; then
+            msg warn "获取最新版本信息..."
+            is_core_ver=$(_wget -qO- "https://api.github.com/repos/${is_core_repo}/releases/latest?v=$RANDOM" | grep tag_name | egrep -o 'v([0-9.]+)')
+            if [[ ! $is_core_ver ]]; then
+                msg err "获取版本信息失败"
+                return 1
+            fi
+        fi
+        link="https://github.com/${is_core_repo}/releases/download/${is_core_ver}/${is_core}-${is_core_ver:1}-linux-${is_arch}.tar.gz"
         name=$is_core_name
         tmpfile=$tmpcore
         is_ok=$is_core_ok
@@ -181,8 +188,12 @@ download() {
 
     [[ $link ]] && {
         msg warn "下载 ${name} > ${link}"
-        if _wget -t 3 -q -c $link -O $tmpfile; then
+        if _wget -t 3 --timeout=30 -c $link -O $tmpfile; then
             mv -f $tmpfile $is_ok
+            return 0
+        else
+            msg err "下载 ${name} 失败"
+            return 1
         fi
     }
 }
@@ -344,12 +355,24 @@ main() {
         jq_not_found=1
     fi
     # if wget installed. download core, sh, jq, get ip
-    [[ $is_wget ]] && {
-        [[ ! $is_core_file ]] && download core &
-        [[ ! $local_install ]] && download sh &
-        [[ $jq_not_found ]] && download jq &
-        get_ip
-    }
+    if [[ $is_wget ]]; then
+        if [[ ! $is_core_file ]]; then
+            download core || is_fail=1
+        fi
+        
+        if [[ ! $local_install ]]; then
+            download sh || is_fail=1
+        fi
+        
+        if [[ $jq_not_found ]]; then
+            download jq || is_fail=1
+        fi
+        
+        get_ip || is_fail=1
+    else
+        msg err "wget 未安装"
+        is_fail=1
+    fi
 
     # waiting for background tasks is done
     wait
