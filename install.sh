@@ -356,23 +356,55 @@ main() {
     fi
     # if wget installed. download core, sh, jq, get ip
     if [[ $is_wget ]]; then
+        # 下载核心文件
         if [[ ! $is_core_file ]]; then
-            download core || is_fail=1
+            download core || {
+                msg err "下载核心文件失败"
+                exit_and_del_tmpdir
+            }
         fi
         
+        # 下载脚本文件
         if [[ ! $local_install ]]; then
-            download sh || is_fail=1
+            download sh || {
+                msg err "下载脚本文件失败"
+                exit_and_del_tmpdir
+            }
         fi
         
+        # 下载 jq
         if [[ $jq_not_found ]]; then
-            download jq || is_fail=1
+            download jq || {
+                msg err "下载 jq 失败"
+                exit_and_del_tmpdir
+            }
         fi
         
-        get_ip || is_fail=1
+        # 获取 IP
+        get_ip || {
+            msg err "获取 IP 失败"
+            exit_and_del_tmpdir
+        }
     else
         msg err "wget 未安装"
-        is_fail=1
+        exit_and_del_tmpdir
     fi
+
+    # 检查下载的文件是否存在
+    [[ ! -f $is_core_ok ]] && {
+        msg err "核心文件不存在"
+        exit_and_del_tmpdir
+    }
+
+    [[ ! $local_install && ! -f $is_sh_ok ]] && {
+        msg err "脚本文件不存在"
+        exit_and_del_tmpdir
+    }
+
+    [[ $jq_not_found && ! -f $is_jq_ok ]] && {
+        msg err "jq 文件不存在"
+        exit_and_del_tmpdir
+    }
 
     # waiting for background tasks is done
     wait
