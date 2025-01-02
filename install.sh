@@ -345,16 +345,16 @@ main() {
         is_ntp_on=1
     }
 
-    # install dependent pkg
-    install_pkg $is_pkg &
+    # 安装依赖包 - 移除后台运行
+    install_pkg $is_pkg
 
-    # jq
+    # jq 检查
     if [[ $(type -P jq) ]]; then
         >$is_jq_ok
     else
         jq_not_found=1
     fi
-    # if wget installed. download core, sh, jq, get ip
+
     if [[ $is_wget ]]; then
         # 下载核心文件
         if [[ ! $is_core_file ]]; then
@@ -405,12 +405,6 @@ main() {
         msg err "jq 文件不存在"
         exit_and_del_tmpdir
     }
-
-    # waiting for background tasks is done
-    wait
-
-    # check background tasks status
-    check_status
 
     # test $is_core_file
     if [[ $is_core_file ]]; then
